@@ -138,6 +138,13 @@
   </div>
 
   <main>
+    <label for="eventType">Type</label>
+    <select id="eventType">
+      <option value="Loaner Out">Loaner Out</option>
+      <option value="Loaner In">Loaner In</option>
+      <option value="Sold / Client Assigned">Sold / Client Assigned</option>
+    </select>
+
     <label for="scannedId">Serial / Asset Tag</label>
     <div class="scan-row">
       <input type="text" id="scannedId" placeholder="Scan or type ID">
@@ -163,14 +170,16 @@
     <label for="client">Client</label>
     <input type="text" id="client" placeholder="Client / company name">
 
-    <label for="contact">Contact</label>
-    <input type="text" id="contact" placeholder="Contact name">
-
-    <label for="assignedUser">Assigned User</label>
-    <input type="text" id="assignedUser" placeholder="Who is this device assigned to?">
+    <label for="contact">Contact / User</label>
+    <input type="text" id="contact" placeholder="Contact or user name">
 
     <label for="scanDate">Date</label>
     <input type="date" id="scanDate">
+
+    <div id="returnDateGroup">
+      <label for="returnDate">Projected Return Date</label>
+      <input type="date" id="returnDate">
+    </div>
 
     <label for="notes">Condition / Notes</label>
     <textarea id="notes" placeholder="Condition, accessories, issues, etc."></textarea>
@@ -267,23 +276,37 @@
 
   // ---------- Form defaults ----------
   var scanDate = document.getElementById("scanDate");
-  function setToday() {
+  var returnDate = document.getElementById("returnDate");
+  var returnDateGroup = document.getElementById("returnDateGroup");
+  var eventType = document.getElementById("eventType");
+
+  function todayIso() {
     var d = new Date();
-    var iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-    scanDate.value = iso;
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function setToday() {
+    scanDate.value = todayIso();
   }
   setToday();
 
+  function syncReturnDateVisibility() {
+    returnDateGroup.hidden = eventType.value !== "Loaner Out";
+  }
+  eventType.addEventListener("change", syncReturnDateVisibility);
+  syncReturnDateVisibility();
+
   document.getElementById("clearForm").addEventListener("click", function () {
+    eventType.value = "Loaner Out";
     document.getElementById("scannedId").value = "";
     document.getElementById("deviceType").value = "Laptop";
     document.getElementById("deviceModel").value = "";
     document.getElementById("client").value = "";
     document.getElementById("contact").value = "";
-    document.getElementById("assignedUser").value = "";
+    returnDate.value = "";
     document.getElementById("notes").value = "";
     document.getElementById("formError").textContent = "";
     setToday();
+    syncReturnDateVisibility();
   });
 
   // ---------- Barcode scanning ----------
@@ -334,12 +357,12 @@
 
   // ---------- Submit / email ----------
   document.getElementById("submitForm").addEventListener("click", function () {
+    var type = eventType.value;
     var scannedId = document.getElementById("scannedId").value.trim();
     var deviceType = document.getElementById("deviceType").value;
     var deviceModel = document.getElementById("deviceModel").value.trim();
     var client = document.getElementById("client").value.trim();
     var contact = document.getElementById("contact").value.trim();
-    var assignedUser = document.getElementById("assignedUser").value.trim();
     var date = scanDate.value;
     var notes = document.getElementById("notes").value.trim();
     var formError = document.getElementById("formError");
@@ -348,19 +371,26 @@
       formError.textContent = "Please fill in at least the Serial/Asset Tag and Client.";
       return;
     }
+    if (type === "Loaner Out" && !returnDate.value) {
+      formError.textContent = "Please set a projected return date for a loaner going out.";
+      return;
+    }
     formError.textContent = "";
 
-    var subject = "Inventory Scan: " + deviceType + " " + scannedId + " (" + date + ")";
+    var subject = type.toUpperCase() + ": " + deviceType + " " + scannedId + " — " + client;
     var bodyLines = [
+      "Type: " + type,
       "Serial / Asset Tag: " + scannedId,
       "Device Type: " + deviceType,
       "Model: " + (deviceModel || "-"),
       "Client: " + client,
-      "Contact: " + (contact || "-"),
-      "Assigned User: " + (assignedUser || "-"),
-      "Date: " + date,
-      "Notes: " + (notes || "-")
+      "Contact / User: " + (contact || "-"),
+      "Date: " + date
     ];
+    if (type === "Loaner Out") {
+      bodyLines.push("Projected Return Date: " + returnDate.value);
+    }
+    bodyLines.push("Notes: " + (notes || "-"));
     var body = bodyLines.join("\n");
 
     var mailto = "mailto:" + encodeURIComponent(getRecipient()) +
