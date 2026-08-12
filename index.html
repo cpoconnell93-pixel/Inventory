@@ -404,7 +404,7 @@
 
   // Bump this on every change that ships. Shown on the PIN screen and in the
   // topbar so it's obvious at a glance whether you're on the latest build.
-  var APP_VERSION = "v1.3 · 2026-08-12";
+  var APP_VERSION = "v1.4 · 2026-08-12";
   document.getElementById("pinVersion").textContent = APP_VERSION;
   document.getElementById("appVersion").textContent = APP_VERSION;
 
@@ -558,6 +558,18 @@
 
   document.getElementById("cancelScan").addEventListener("click", stopScan);
 
+  // Zoom in a bit on cameras that support it, so a normal working distance
+  // fills the frame instead of requiring you to lean in close.
+  function applyAutoZoom() {
+    if (!currentStream) return;
+    var track = currentStream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return;
+    var caps = track.getCapabilities();
+    if (!caps.zoom) return;
+    var target = Math.min(caps.max, Math.max(caps.min, caps.min + (caps.max - caps.min) * 0.35));
+    track.applyConstraints({ advanced: [{ zoom: target }] }).catch(function () {});
+  }
+
   function openScan() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       document.getElementById("formError").textContent = "Camera not available. Make sure you're using https:// (not a local file), and allow camera access.";
@@ -580,15 +592,18 @@
       ZXing.BarcodeFormat.QR_CODE,
       ZXing.BarcodeFormat.DATA_MATRIX
     ]);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, false);
+    // A distant barcode is just a few dozen pixels wide at 720p, which is
+    // why it needs to fill the frame to decode. TRY_HARDER catches those
+    // small/angled reads that the fast pass misses.
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
 
     codeReader = new ZXing.BrowserMultiFormatReader(hints);
     codeReader.decodeFromConstraints(
       {
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
           advanced: [{ focusMode: "continuous" }]
         }
       },
@@ -604,6 +619,7 @@
       }
     ).then(function (controls) {
       if (video.srcObject) currentStream = video.srcObject;
+      applyAutoZoom();
     }).catch(function (err) {
       scanStatus.textContent = "Camera error: " + (err && err.message ? err.message : err);
     });
