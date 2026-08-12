@@ -554,13 +554,37 @@
     scanStatus.textContent = "Point the camera at the barcode";
     scanModal.hidden = false;
 
-    codeReader = new ZXing.BrowserMultiFormatReader();
+    // Limit to the formats asset tags/serials actually use — fewer formats
+    // to try per frame means the decoder locks on faster.
+    var hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.UPC_A,
+      ZXing.BarcodeFormat.UPC_E,
+      ZXing.BarcodeFormat.ITF,
+      ZXing.BarcodeFormat.QR_CODE,
+      ZXing.BarcodeFormat.DATA_MATRIX
+    ]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, false);
+
+    codeReader = new ZXing.BrowserMultiFormatReader(hints);
     codeReader.decodeFromConstraints(
-      { video: { facingMode: { ideal: "environment" } } },
+      {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          advanced: [{ focusMode: "continuous" }]
+        }
+      },
       video,
       function (result, err) {
         if (result) {
           scannedIdInput.value = result.getText();
+          if (navigator.vibrate) navigator.vibrate(60);
           stopScan();
           // Jump straight to Client after a successful scan — the two things every entry needs.
           document.getElementById("client").focus();
