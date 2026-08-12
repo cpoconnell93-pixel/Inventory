@@ -136,6 +136,8 @@
     font-size: 13px; flex-shrink: 0; font-weight: 700;
   }
   .topbar h1 { font-size: 14.5px; margin: 0; letter-spacing: -0.005em; font-weight: 700; }
+  .version { font-size: 11px; color: var(--ink-faint); font-family: var(--mono); margin: 1px 0 0; }
+  #pinVersion { margin: -12px 0 20px; }
   .gear {
     background: var(--surface-sunken); border: 1.5px solid var(--border);
     width: 34px; height: 34px; border-radius: var(--radius-sm);
@@ -259,6 +261,7 @@
     <div class="pin-icon">•••</div>
     <h1>Device Inventory Scanner</h1>
     <p class="sub">Enter your PIN to continue</p>
+    <p class="version" id="pinVersion"></p>
     <label for="pinInput">PIN</label>
     <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="••••••" maxlength="12">
     <div class="error" id="pinError"></div>
@@ -273,7 +276,10 @@
   <div class="topbar">
     <div class="topbar-title">
       <div class="mark">IN</div>
-      <h1>Device Inventory</h1>
+      <div>
+        <h1>Device Inventory</h1>
+        <p class="version" id="appVersion"></p>
+      </div>
     </div>
     <button class="gear" id="openSettings" title="Settings">⚙</button>
   </div>
@@ -395,6 +401,12 @@
   var CORRECT_PIN = "111222";
   var DEFAULT_EMAIL = "cpoconnell93@gmail.com";
   var RETURN_DEFAULT_DAYS = 7;
+
+  // Bump this on every change that ships. Shown on the PIN screen and in the
+  // topbar so it's obvious at a glance whether you're on the latest build.
+  var APP_VERSION = "v1.3 · 2026-08-12";
+  document.getElementById("pinVersion").textContent = APP_VERSION;
+  document.getElementById("appVersion").textContent = APP_VERSION;
 
   // ---------- PIN gate ----------
   var pinScreen = document.getElementById("pinScreen");
