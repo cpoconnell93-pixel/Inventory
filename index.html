@@ -6,84 +6,212 @@
 <title>Device Inventory Scanner</title>
 <style>
   :root {
-    --bg: #f4f5f7;
-    --card: #ffffff;
-    --ink: #1c1f26;
-    --muted: #6b7280;
-    --accent: #2f6feb;
-    --accent-dark: #244fb0;
-    --border: #dfe3ea;
-    --danger: #d64545;
-    --ok: #1f9d55;
+    --bg: #f2f3f6;
+    --surface: #ffffff;
+    --surface-sunken: #f7f8fa;
+    --ink: #14161c;
+    --ink-soft: #676d7a;
+    --ink-faint: #9aa0ac;
+    --border: #e6e8ed;
+    --accent: #3457d5;
+    --accent-ink: #ffffff;
+    --danger: #d1435b;
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 1px 2px rgba(20, 22, 28, 0.04);
+    --shadow-md: 0 8px 24px rgba(20, 22, 28, 0.08);
+
+    --type-out: #c2600a;
+    --type-out-bg: #fdf1e3;
+    --type-in: #157a4a;
+    --type-in-bg: #e6f6ee;
+    --type-sold: #6a3fc4;
+    --type-sold-bg: #f0ecfc;
   }
+
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
   html, body {
     margin: 0; padding: 0; background: var(--bg); color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     height: 100%;
+    -webkit-font-smoothing: antialiased;
   }
+
+  input, select, textarea, button { font-family: inherit; }
+
+  /* ---------- PIN screen ---------- */
   .screen {
     min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
     padding: 24px;
   }
   .card {
-    background: var(--card);
-    border-radius: 16px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-    padding: 32px;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 32px 28px;
     width: 100%;
-    max-width: 460px;
+    max-width: 420px;
   }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
-  label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 16px 0 6px; }
+  .pin-icon {
+    width: 52px; height: 52px; border-radius: 16px;
+    background: linear-gradient(155deg, var(--accent), #5a3fd6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; margin-bottom: 18px;
+  }
+  h1 { font-size: 21px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-soft); font-size: 14px; margin: 0 0 22px; line-height: 1.4; }
+
+  label {
+    display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: 0.02em;
+    margin: 18px 0 7px;
+  }
   label:first-of-type { margin-top: 0; }
+
   input[type=text], input[type=date], input[type=password], input[type=tel], input[type=email], select, textarea {
     width: 100%;
-    font-size: 17px;
-    padding: 12px 14px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: #fff;
+    font-size: 16.5px;
+    padding: 13px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
     color: var(--ink);
-    font-family: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: border-color .15s, background .15s;
   }
-  textarea { resize: vertical; min-height: 70px; }
-  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .row { display: flex; gap: 10px; }
-  .row > * { flex: 1; }
-  .scan-row { display: flex; gap: 10px; align-items: stretch; }
-  .scan-row input { flex: 1; }
-  button {
-    font-size: 16px;
-    font-weight: 600;
-    border: none;
-    border-radius: 10px;
-    padding: 14px 18px;
-    cursor: pointer;
-    font-family: inherit;
+  input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+  textarea { resize: vertical; min-height: 76px; line-height: 1.4; }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--accent); background: var(--surface);
   }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:active { background: var(--accent-dark); }
-  .btn-secondary { background: #eef1f6; color: var(--ink); }
-  .btn-secondary:active { background: #e2e6ee; }
-  .btn-scan { background: var(--ink); color: #fff; white-space: nowrap; }
-  .btn-scan:active { background: #000; }
-  .actions { display: flex; gap: 10px; margin-top: 26px; }
-  .actions button { flex: 1; }
-  .error { color: var(--danger); font-size: 14px; margin-top: 10px; min-height: 18px; }
-  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'><path d='M1 1l6 6 6-6' stroke='%23676d7a' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  .field-row { display: flex; gap: 12px; }
+  .field-row > * { flex: 1; min-width: 0; }
+
+  button { border: none; cursor: pointer; font-family: inherit; }
+
+  .btn-primary {
+    background: var(--accent); color: var(--accent-ink);
+    font-size: 16px; font-weight: 700;
+    padding: 15px 18px; border-radius: var(--radius-sm);
+  }
+  .btn-primary:active { opacity: 0.85; }
+  .btn-secondary {
+    background: var(--surface-sunken); color: var(--ink);
+    font-size: 16px; font-weight: 600;
+    padding: 15px 18px; border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+  }
+  .btn-secondary:active { background: var(--border); }
+
+  .error { color: var(--danger); font-size: 13.5px; margin-top: 10px; min-height: 16px; font-weight: 500; }
+  .hint { color: var(--ink-faint); font-size: 12.5px; margin: 10px 2px 0; line-height: 1.4; }
+
+  /* ---------- App shell ---------- */
   .topbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 16px 20px; background: rgba(255,255,255,0.92);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
     position: sticky; top: 0; z-index: 5;
   }
-  .topbar h1 { font-size: 17px; margin: 0; }
-  .gear { background: none; border: none; font-size: 20px; padding: 6px; cursor: pointer; }
-  main { max-width: 620px; margin: 0 auto; padding: 20px; padding-bottom: 60px; }
+  .topbar-title { display: flex; align-items: center; gap: 10px; }
+  .topbar-title .mark {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: linear-gradient(155deg, var(--accent), #5a3fd6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .topbar h1 { font-size: 16px; margin: 0; letter-spacing: -0.01em; }
+  .gear {
+    background: var(--surface-sunken); border: 1.5px solid var(--border);
+    width: 38px; height: 38px; border-radius: 11px;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    color: var(--ink-soft);
+  }
+  .gear:active { background: var(--border); }
 
-  /* Camera modal */
+  main { max-width: 640px; margin: 0 auto; padding: 18px 16px 40px; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 20px 18px 22px;
+    margin-bottom: 14px;
+  }
+  .panel-title {
+    font-size: 12px; font-weight: 700; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 0 0 4px;
+  }
+
+  /* Type segmented control */
+  .segment {
+    display: flex; gap: 6px;
+    background: var(--surface-sunken);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+  }
+  .segment button {
+    flex: 1;
+    background: transparent;
+    padding: 11px 6px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  .segment button[aria-pressed="true"] { background: var(--surface); box-shadow: var(--shadow-sm); }
+  .segment button[data-type="Loaner Out"][aria-pressed="true"] { color: var(--type-out); }
+  .segment button[data-type="Loaner In"][aria-pressed="true"] { color: var(--type-in); }
+  .segment button[data-type="Sold / Client Assigned"][aria-pressed="true"] { color: var(--type-sold); }
+
+  .type-banner {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px; font-weight: 700;
+    padding: 9px 12px; border-radius: 10px;
+    margin-top: 14px;
+  }
+  .type-banner .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .type-banner.out { background: var(--type-out-bg); color: var(--type-out); }
+  .type-banner.out .dot { background: var(--type-out); }
+  .type-banner.in { background: var(--type-in-bg); color: var(--type-in); }
+  .type-banner.in .dot { background: var(--type-in); }
+  .type-banner.sold { background: var(--type-sold-bg); color: var(--type-sold); }
+  .type-banner.sold .dot { background: var(--type-sold); }
+
+  .scan-row { display: flex; gap: 10px; align-items: stretch; }
+  .scan-row input { flex: 1; min-width: 0; }
+  .btn-scan {
+    background: var(--ink); color: #fff; white-space: nowrap;
+    padding: 0 16px; border-radius: var(--radius-sm);
+    font-size: 14.5px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  }
+  .btn-scan:active { background: #000; }
+
+  .actions { display: flex; gap: 10px; margin-top: 4px; }
+  .actions button { flex: 1; }
+
+  [hidden] { display: none !important; }
+
+  /* ---------- Camera modal ---------- */
   #scanModal {
     position: fixed; inset: 0; background: #000; z-index: 50;
     display: flex; flex-direction: column;
@@ -93,25 +221,32 @@
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     display: flex; align-items: center; justify-content: center; pointer-events: none;
   }
-  .scan-box { width: 78%; max-width: 420px; height: 120px; border: 3px solid #fff; border-radius: 12px; opacity: 0.85; }
+  .scan-box { width: 78%; max-width: 420px; height: 120px; border: 3px solid #fff; border-radius: 16px; opacity: 0.9; box-shadow: 0 0 0 2000px rgba(0,0,0,0.35); }
   .scan-bar {
     position: absolute; bottom: 0; left: 0; right: 0;
-    padding: 18px; display: flex; gap: 10px; background: rgba(0,0,0,0.5);
+    padding: 18px calc(18px + env(safe-area-inset-bottom, 0px)) calc(18px + env(safe-area-inset-bottom, 0px));
+    display: flex; gap: 10px; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
   }
   .scan-bar button { flex: 1; }
   .scan-status {
-    position: absolute; top: 20px; left: 0; right: 0; text-align: center;
-    color: #fff; font-size: 14px; padding: 0 20px;
+    position: absolute; top: calc(20px + env(safe-area-inset-top, 0px)); left: 0; right: 0; text-align: center;
+    color: #fff; font-size: 14px; font-weight: 600; padding: 0 20px; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   }
 
-  /* Settings modal */
+  /* ---------- Settings modal ---------- */
   #settingsModal {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 60;
+    position: fixed; inset: 0; background: rgba(10,12,18,0.45); z-index: 60;
     display: flex; align-items: flex-end; justify-content: center;
   }
-  #settingsModal .card { max-width: 460px; border-radius: 16px 16px 0 0; margin: 0; }
+  #settingsModal .card {
+    max-width: 460px; border-radius: 22px 22px 0 0; margin: 0;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
 
-  [hidden] { display: none !important; }
+  @media (min-width: 560px) {
+    .panel { padding: 24px 26px 26px; }
+    main { padding: 24px 20px 48px; }
+  }
 </style>
 </head>
 <body>
@@ -119,8 +254,9 @@
 <!-- PIN screen -->
 <div class="screen" id="pinScreen">
   <div class="card">
+    <div class="pin-icon">🔒</div>
     <h1>Device Inventory Scanner</h1>
-    <p class="sub">Enter PIN to continue</p>
+    <p class="sub">Enter your PIN to continue</p>
     <label for="pinInput">PIN</label>
     <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="••••••" maxlength="12">
     <div class="error" id="pinError"></div>
@@ -133,56 +269,80 @@
 <!-- Main app -->
 <div id="app" hidden>
   <div class="topbar">
-    <h1>Device Inventory Scanner</h1>
+    <div class="topbar-title">
+      <div class="mark">📦</div>
+      <h1>Device Inventory</h1>
+    </div>
     <button class="gear" id="openSettings" title="Settings">⚙️</button>
   </div>
 
   <main>
-    <label for="eventType">Type</label>
-    <select id="eventType">
-      <option value="Loaner Out">Loaner Out</option>
-      <option value="Loaner In">Loaner In</option>
-      <option value="Sold / Client Assigned">Sold / Client Assigned</option>
-    </select>
 
-    <label for="scannedId">Serial / Asset Tag</label>
-    <div class="scan-row">
-      <input type="text" id="scannedId" placeholder="Scan or type ID">
-      <button class="btn-scan" id="openScan">📷 Scan</button>
-    </div>
-
-    <div class="row">
-      <div>
-        <label for="deviceType">Device Type</label>
-        <select id="deviceType">
-          <option value="Laptop">Laptop</option>
-          <option value="Dock">Dock</option>
-          <option value="Monitor">Monitor</option>
-          <option value="Other">Other</option>
-        </select>
+    <div class="panel">
+      <p class="panel-title">Event Type</p>
+      <div class="segment" id="typeSegment" role="group">
+        <button type="button" data-type="Loaner Out" aria-pressed="true">Loaner Out</button>
+        <button type="button" data-type="Loaner In" aria-pressed="false">Loaner In</button>
+        <button type="button" data-type="Sold / Client Assigned" aria-pressed="false">Sold</button>
       </div>
-      <div>
-        <label for="deviceModel">Model</label>
-        <input type="text" id="deviceModel" placeholder="e.g. ThinkPad T14">
+      <div class="type-banner out" id="typeBanner">
+        <span class="dot"></span><span id="typeBannerText">Device is leaving the office as a loaner</span>
       </div>
     </div>
 
-    <label for="client">Client</label>
-    <input type="text" id="client" placeholder="Client / company name">
+    <div class="panel">
+      <p class="panel-title">Device</p>
+      <label for="scannedId">Serial / Asset Tag</label>
+      <div class="scan-row">
+        <input type="text" id="scannedId" placeholder="Scan or type ID">
+        <button type="button" class="btn-scan" id="openScan">📷 Scan</button>
+      </div>
 
-    <label for="contact">Contact / User</label>
-    <input type="text" id="contact" placeholder="Contact or user name">
-
-    <label for="scanDate">Date</label>
-    <input type="date" id="scanDate">
-
-    <div id="returnDateGroup">
-      <label for="returnDate">Projected Return Date</label>
-      <input type="date" id="returnDate">
+      <div class="field-row">
+        <div>
+          <label for="deviceType">Device Type</label>
+          <select id="deviceType">
+            <option value="Laptop">Laptop</option>
+            <option value="Dock">Dock</option>
+            <option value="Monitor">Monitor</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="deviceModel">Model</label>
+          <input type="text" id="deviceModel" placeholder="e.g. ThinkPad T14">
+        </div>
+      </div>
     </div>
 
-    <label for="notes">Condition / Notes</label>
-    <textarea id="notes" placeholder="Condition, accessories, issues, etc."></textarea>
+    <div class="panel">
+      <p class="panel-title">Assignment</p>
+      <label for="client">Client</label>
+      <input type="text" id="client" placeholder="Client / company name">
+
+      <label for="contact">Contact / User</label>
+      <input type="text" id="contact" placeholder="Contact or user name">
+    </div>
+
+    <div class="panel">
+      <p class="panel-title">Dates</p>
+      <div class="field-row">
+        <div>
+          <label for="scanDate">Date</label>
+          <input type="date" id="scanDate">
+        </div>
+        <div id="returnDateGroup">
+          <label for="returnDate">Return Date</label>
+          <input type="date" id="returnDate">
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <p class="panel-title">Notes</p>
+      <label for="notes">Condition / Notes</label>
+      <textarea id="notes" placeholder="Condition, accessories, issues, etc."></textarea>
+    </div>
 
     <div class="error" id="formError"></div>
 
@@ -274,29 +434,48 @@
     settingsModal.hidden = true;
   });
 
+  // ---------- Type segmented control ----------
+  var typeSegment = document.getElementById("typeSegment");
+  var typeButtons = Array.prototype.slice.call(typeSegment.querySelectorAll("button"));
+  var typeBanner = document.getElementById("typeBanner");
+  var typeBannerText = document.getElementById("typeBannerText");
+  var returnDateGroup = document.getElementById("returnDateGroup");
+  var returnDate = document.getElementById("returnDate");
+  var currentType = "Loaner Out";
+
+  var TYPE_META = {
+    "Loaner Out": { cls: "out", text: "Device is leaving the office as a loaner" },
+    "Loaner In": { cls: "in", text: "Device is being checked back in" },
+    "Sold / Client Assigned": { cls: "sold", text: "Device is being sold or permanently assigned" }
+  };
+
+  function setType(type) {
+    currentType = type;
+    typeButtons.forEach(function (btn) {
+      btn.setAttribute("aria-pressed", btn.dataset.type === type ? "true" : "false");
+    });
+    var meta = TYPE_META[type];
+    typeBanner.className = "type-banner " + meta.cls;
+    typeBannerText.textContent = meta.text;
+    returnDateGroup.hidden = type !== "Loaner Out";
+  }
+
+  typeButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () { setType(btn.dataset.type); });
+  });
+  setType("Loaner Out");
+
   // ---------- Form defaults ----------
   var scanDate = document.getElementById("scanDate");
-  var returnDate = document.getElementById("returnDate");
-  var returnDateGroup = document.getElementById("returnDateGroup");
-  var eventType = document.getElementById("eventType");
-
   function todayIso() {
     var d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
-  function setToday() {
-    scanDate.value = todayIso();
-  }
+  function setToday() { scanDate.value = todayIso(); }
   setToday();
 
-  function syncReturnDateVisibility() {
-    returnDateGroup.hidden = eventType.value !== "Loaner Out";
-  }
-  eventType.addEventListener("change", syncReturnDateVisibility);
-  syncReturnDateVisibility();
-
   document.getElementById("clearForm").addEventListener("click", function () {
-    eventType.value = "Loaner Out";
+    setType("Loaner Out");
     document.getElementById("scannedId").value = "";
     document.getElementById("deviceType").value = "Laptop";
     document.getElementById("deviceModel").value = "";
@@ -306,7 +485,6 @@
     document.getElementById("notes").value = "";
     document.getElementById("formError").textContent = "";
     setToday();
-    syncReturnDateVisibility();
   });
 
   // ---------- Barcode scanning ----------
@@ -348,7 +526,6 @@
         }
       }
     ).then(function (controls) {
-      // capture the underlying stream so we can stop it on cancel
       if (video.srcObject) currentStream = video.srcObject;
     }).catch(function (err) {
       scanStatus.textContent = "Camera error: " + (err && err.message ? err.message : err);
@@ -357,7 +534,7 @@
 
   // ---------- Submit / email ----------
   document.getElementById("submitForm").addEventListener("click", function () {
-    var type = eventType.value;
+    var type = currentType;
     var scannedId = document.getElementById("scannedId").value.trim();
     var deviceType = document.getElementById("deviceType").value;
     var deviceModel = document.getElementById("deviceModel").value.trim();
