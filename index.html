@@ -233,6 +233,7 @@
     display: flex; gap: 10px; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
   }
   .scan-bar button { flex: 1; }
+  #toggleTorch.on { background: #f5c542; color: #14161c; border-color: #f5c542; }
   .scan-status {
     position: absolute; top: calc(20px + env(safe-area-inset-top, 0px)); left: 0; right: 0; text-align: center;
     color: #fff; font-size: 13.5px; font-weight: 600; padding: 0 20px; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
@@ -377,6 +378,7 @@
   <div class="scan-overlay"><div class="scan-box"></div></div>
   <div class="scan-bar">
     <button class="btn-secondary" id="cancelScan">Cancel</button>
+    <button class="btn-secondary" id="toggleTorch" hidden>🔦 Light</button>
   </div>
 </div>
 
@@ -404,7 +406,7 @@
 
   // Bump this on every change that ships. Shown on the PIN screen and in the
   // topbar so it's obvious at a glance whether you're on the latest build.
-  var APP_VERSION = "v1.4 · 2026-08-12";
+  var APP_VERSION = "v1.5 · 2026-08-12";
   document.getElementById("pinVersion").textContent = APP_VERSION;
   document.getElementById("appVersion").textContent = APP_VERSION;
 
@@ -544,6 +546,8 @@
   var video = document.getElementById("video");
   var codeReader = null;
   var currentStream = null;
+  var torchOn = false;
+  var toggleTorchBtn = document.getElementById("toggleTorch");
 
   function stopScan() {
     if (codeReader) {
@@ -553,6 +557,9 @@
       currentStream.getTracks().forEach(function (t) { t.stop(); });
       currentStream = null;
     }
+    torchOn = false;
+    toggleTorchBtn.hidden = true;
+    toggleTorchBtn.classList.remove("on");
     scanModal.hidden = true;
   }
 
@@ -568,6 +575,24 @@
     if (!caps.zoom) return;
     var target = Math.min(caps.max, Math.max(caps.min, caps.min + (caps.max - caps.min) * 0.35));
     track.applyConstraints({ advanced: [{ zoom: target }] }).catch(function () {});
+  }
+
+  // Show the flashlight toggle only on cameras that actually support a torch —
+  // low light kills barcode contrast worse than distance or resolution does.
+  function setupTorchToggle() {
+    if (!currentStream) return;
+    var track = currentStream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return;
+    var caps = track.getCapabilities();
+    if (!caps.torch) return;
+    toggleTorchBtn.hidden = false;
+    toggleTorchBtn.onclick = function () {
+      torchOn = !torchOn;
+      track.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(function () {
+        torchOn = !torchOn;
+      });
+      toggleTorchBtn.classList.toggle("on", torchOn);
+    };
   }
 
   function openScan() {
@@ -620,6 +645,7 @@
     ).then(function (controls) {
       if (video.srcObject) currentStream = video.srcObject;
       applyAutoZoom();
+      setupTorchToggle();
     }).catch(function (err) {
       scanStatus.textContent = "Camera error: " + (err && err.message ? err.message : err);
     });
