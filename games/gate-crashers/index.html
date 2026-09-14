@@ -1,0 +1,1332 @@
+<title>Gate Crashers</title>
+<style>
+  html, body { margin:0; padding:0; background:#07041a; overflow:hidden; overscroll-behavior:none; }
+  #gc-wrap {
+    position:fixed; inset:0; width:100%; height:100dvh; min-height:100vh;
+    background:#07041a; color:#ffffff; overflow:hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
+  }
+  #gc-canvas { position:absolute; left:0; top:0; width:100%; height:100%; display:block; touch-action:none; }
+
+  #gc-hud {
+    position:absolute; left:0; right:0; top:0; padding:10px 12px 0 12px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none; z-index:5;
+  }
+  .gc-chip {
+    background:rgba(10,6,32,0.62); border:2px solid #2de2ff; border-radius:12px;
+    padding:6px 10px; min-width:64px; text-align:center;
+    box-shadow:0 0 14px rgba(45,226,255,0.35);
+  }
+  .gc-chip .gc-k { display:block; font-size:10px; letter-spacing:2px; color:#8ce8ff; font-weight:800; }
+  .gc-chip .gc-v { display:block; font-size:20px; line-height:1.05; font-weight:900; color:#ffffff; }
+  #gc-chip-count { border-color:#ffd23f; box-shadow:0 0 14px rgba(255,210,63,0.4); }
+  #gc-chip-count .gc-k { color:#ffe89a; }
+
+  #gc-ui { position:absolute; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .gc-screen {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:14px; padding:24px;
+    background:rgba(7,4,26,0.86); text-align:center; pointer-events:auto;
+  }
+  .gc-screen[hidden] { display:none !important; }
+  .gc-title {
+    font-size:40px; line-height:1.0; font-weight:900; letter-spacing:-1px; margin:0;
+    color:#ffd23f; text-shadow:0 0 18px rgba(255,107,53,0.8), 0 4px 0 #c1272d;
+  }
+  .gc-sub { font-size:15px; font-weight:700; color:#c9d6ff; margin:0; max-width:320px; line-height:1.45; }
+  .gc-big { font-size:64px; font-weight:900; color:#ffffff; margin:0; line-height:1; text-shadow:0 0 22px rgba(45,226,255,0.7); }
+  .gc-stat { font-size:16px; font-weight:800; color:#9ec5ff; margin:0; }
+  .gc-btn {
+    min-height:56px; min-width:220px; padding:0 26px; border:0; border-radius:14px;
+    font-size:20px; font-weight:900; letter-spacing:0.5px; color:#101020;
+    background:linear-gradient(#ffe066,#ff9f1c); cursor:pointer;
+    box-shadow:0 6px 0 #b45309, 0 0 24px rgba(255,159,28,0.55);
+    font-family:inherit; touch-action:manipulation;
+  }
+  .gc-btn:active { transform:translateY(3px); box-shadow:0 3px 0 #b45309; }
+  .gc-btn.gc-alt { background:linear-gradient(#7be0ff,#1fb6ff); box-shadow:0 6px 0 #0b5f8a, 0 0 24px rgba(31,182,255,0.5); }
+  .gc-legend { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:330px; }
+  .gc-tag { font-size:13px; font-weight:900; padding:6px 10px; border-radius:9px; }
+  .gc-tag.good { background:#1fb6ff; color:#04223a; }
+  .gc-tag.bad  { background:#ff3b30; color:#2a0403; }
+  .gc-tag.warn { background:#ff9f1c; color:#301a00; }
+</style>
+
+<div id="gc-wrap">
+  <canvas id="gc-canvas"></canvas>
+
+  <div id="gc-hud">
+    <div class="gc-chip"><span class="gc-k">LEVEL</span><span class="gc-v" id="gc-level">1</span></div>
+    <div class="gc-chip" id="gc-chip-count"><span class="gc-k">SQUAD</span><span class="gc-v" id="gc-count">12</span></div>
+    <div class="gc-chip"><span class="gc-k">BEST</span><span class="gc-v" id="gc-best">1</span></div>
+  </div>
+
+  <div id="gc-ui">
+    <div class="gc-screen" id="gc-scr-menu">
+      <h1 class="gc-title">GATE<br>CRASHERS</h1>
+      <p class="gc-sub">Drag to steer your squad. Pick the right gate, shred the horde, then out-number the boss.</p>
+      <div class="gc-legend">
+        <span class="gc-tag good">+N&nbsp; &times;N</span>
+        <span class="gc-tag bad">&minus;N&nbsp; &divide;N</span>
+        <span class="gc-tag warn">RED HORDES BITE</span>
+      </div>
+      <button class="gc-btn" id="gc-btn-start">START RUN</button>
+      <p class="gc-stat" id="gc-menu-best">Best level: 1</p>
+    </div>
+
+    <div class="gc-screen" id="gc-scr-clear" hidden>
+      <h1 class="gc-title" style="color:#7bffb0;text-shadow:0 0 18px rgba(45,226,255,.8),0 4px 0 #0b7a4a;">LEVEL CLEAR</h1>
+      <p class="gc-big" id="gc-clear-count">0</p>
+      <p class="gc-stat" id="gc-clear-note">soldiers standing</p>
+      <button class="gc-btn gc-alt" id="gc-btn-next">NEXT LEVEL</button>
+    </div>
+
+    <div class="gc-screen" id="gc-scr-over" hidden>
+      <h1 class="gc-title" style="color:#ff5a4d;text-shadow:0 0 18px rgba(255,59,48,.8),0 4px 0 #6d0d08;">SQUAD WIPED</h1>
+      <p class="gc-sub" id="gc-over-note">The horde got through.</p>
+      <button class="gc-btn" id="gc-btn-retry">RETRY LEVEL</button>
+      <button class="gc-btn gc-alt" id="gc-btn-menu" style="min-height:48px;font-size:16px;min-width:180px;">BACK TO MENU</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ======================================================================
+     TUNING CONSTANTS  (all gameplay knobs live in this one block)
+     ====================================================================== */
+  var CFG = {
+    // --- track geometry (world units along the road) ---
+    SEG_Z:            150,   // distance between gate pairs
+    FIRST_GATE_Z:     160,   // where the first gate pair sits
+    BOSS_GAP_Z:       185,   // distance from last gate to the boss
+    GUARD_OFFSET_Z:   20,    // guard horde charges out just past its gate
+    GUARD_R:          0.48,  // guard horde half-width: fills its road half, no overlap
+    MID_R:            1.25,  // mid-lane blocker spans the whole road
+    FAR_Z:            340,   // draw distance
+
+    // --- speed ---
+    SPEED_BASE:       32,    // level 1 run speed (units/sec)
+    SPEED_PER_LEVEL:  2.2,
+    SPEED_MAX:        62,
+
+    // --- steering ---
+    STEER_RATE:       4.6,   // lerp rate toward target lane (bigger = snappier)
+    DRAG_GAIN:        1.35,  // screen-drag -> lane units
+    KEY_RATE:         2.2,   // lane units / sec for keyboard
+
+    // --- shooting ---
+    ENGAGE_Z:         55,    // bullets only fire at targets this close
+    BULLET_SPEED:     300,
+    FIRE_K:           2.2,   // shots/sec = FIRE_K * sqrt(count)
+    FIRE_MAX:         90,
+    BOSS_ARMOR:       0.30,  // bullet damage multiplier vs boss
+    MODEL_EFF:        0.97,  // generator's estimate of real engage efficiency
+    AIM_BIAS:         22,    // how strongly aim prefers the lane you steer into
+    CONTACT_PAD:      0.06,  // melee reach past the horde edge
+
+    // --- horde sizing (relative to the squad size the player should have) ---
+    GUARD_BASE:       0.30,  // guard horde = count * (GUARD_BASE + GUARD_PER_LEVEL*L)
+    GUARD_PER_LEVEL:  0.05,
+    MID_CHANCE:       0.32,
+    MID_OFFSET_Z:     75,    // keeps mid hordes ENGAGE_Z clear of both neighbours
+    MID_BASE:         0.18,
+    MID_PER_LEVEL:    0.03,
+    GUARD_CHANCE:     0.50,
+    BOTH_GUARD_CHANCE:0.18,
+
+    // --- balance ---
+    TARGET_RATIO:     1.22,  // optimal squad at the boss = bossHP * this
+    HP_TOLERANCE:     0.22,  // boss HP may drift this far from the spec table
+    SEED_TRIES:       90,
+    SEG_MIN:          6,
+    SEG_MAX:          10,
+    SQUAD_CAP_MIN:    400,
+    CAP_OVER_BOSS:    1.6,
+    START_DIV:        12,    // level start count = max(12, bossHP / START_DIV)
+    CLASH_TIME:       1.1,   // seconds of boss melee resolution
+
+    // --- presentation ---
+    CAM_D:            56,    // perspective focal distance
+    HORIZON_F:        0.34,
+    BASE_F:           0.965,
+    ROAD_F:           0.44,  // road half-width as fraction of canvas width
+    GATE_H_PX:        215,   // gate wall height at p = 1
+    GATE_ALPHA:       0.32,  // gate panel fill opacity
+    MAX_SPRITES:      150,
+    MAX_ENEMY_SPRITES:70,
+    BULLET_POOL:      260,
+    PARTICLE_POOL:    220,
+    SHAKE_DECAY:      6
+  };
+
+  // Boss HP per level, then +40% per level beyond the table.
+  var BOSS_TABLE = [30, 60, 110, 180, 280, 400];
+  function bossBaseHP(L) {
+    if (L <= BOSS_TABLE.length) return BOSS_TABLE[L - 1];
+    return Math.round(BOSS_TABLE[5] * Math.pow(1.4, L - 6));
+  }
+  function capForLevel(L) {
+    return Math.max(CFG.SQUAD_CAP_MIN, Math.round(bossBaseHP(L) * CFG.CAP_OVER_BOSS));
+  }
+  function speedForLevel(L) {
+    return Math.min(CFG.SPEED_MAX, CFG.SPEED_BASE + L * CFG.SPEED_PER_LEVEL);
+  }
+
+  /* ======================================================================
+     PALETTE — single saturated arcade world, every colour explicit
+     ====================================================================== */
+  var C = {
+    skyTop:   '#150a3a',
+    skyMid:   '#6a1f87',
+    skyLow:   '#ff5a2b',
+    sun:      '#ffd23f',
+    sunCore:  '#fff3b0',
+    ground:   '#0d2b3a',
+    ground2:  '#113a4c',
+    roadA:    '#2b3550',
+    roadB:    '#333f5f',
+    roadEdge: '#2de2ff',
+    railA:    '#ff3b30',
+    railB:    '#f4f4f8',
+    divider:  '#6b7ba8',
+    ally:     '#3a86ff',
+    allyHi:   '#a9cbff',
+    allyDark: '#12336f',
+    foe:      '#ff3b30',
+    foeHi:    '#ffb0aa',
+    foeDark:  '#7a0f0a',
+    boss:     '#ff1f5a',
+    bossHi:   '#ffd23f',
+    bossDark: '#5c0320',
+    good:     '#1fb6ff',
+    goodDim:  '#0a4f7a',
+    bad:      '#ff3b30',
+    badDim:   '#6d120d',
+    bullet:   '#ffe066',
+    bulletHot:'#fff8d0',
+    white:    '#ffffff',
+    ink:      '#080420'
+  };
+
+  var FONT_STACK = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  function font(px, weight) { return (weight || 900) + ' ' + (px | 0) + 'px ' + FONT_STACK; }
+
+  /* ======================================================================
+     DOM
+     ====================================================================== */
+  var wrap = document.getElementById('gc-wrap');
+  var canvas = document.getElementById('gc-canvas');
+  var ctx = canvas.getContext('2d', { alpha: false });
+  var elLevel = document.getElementById('gc-level');
+  var elCount = document.getElementById('gc-count');
+  var elBest = document.getElementById('gc-best');
+  var elMenuBest = document.getElementById('gc-menu-best');
+  var scrMenu = document.getElementById('gc-scr-menu');
+  var scrClear = document.getElementById('gc-scr-clear');
+  var scrOver = document.getElementById('gc-scr-over');
+  var elClearCount = document.getElementById('gc-clear-count');
+  var elClearNote = document.getElementById('gc-clear-note');
+  var elOverNote = document.getElementById('gc-over-note');
+
+  var reduceMotion = false;
+  try {
+    reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  } catch (e) { reduceMotion = false; }
+
+  /* ======================================================================
+     VIEW / PROJECTION
+     ====================================================================== */
+  var W = 390, H = 844, cx = 195, horizonY = 287, baseY = 814, roadHalf = 171, dpr = 1;
+
+  function resize() {
+    var r = wrap.getBoundingClientRect();
+    W = Math.max(240, Math.round(r.width || window.innerWidth || 390));
+    H = Math.max(320, Math.round(r.height || window.innerHeight || 844));
+    dpr = Math.min(3, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx = W * 0.5;
+    horizonY = Math.round(H * CFG.HORIZON_F);
+    baseY = Math.round(H * CFG.BASE_F);
+    roadHalf = W * CFG.ROAD_F;
+  }
+
+  // Scratch projection result — reused, never allocated in the hot path.
+  var PJ = { x: 0, y: 0, p: 0 };
+  function project(lane, relZ) {
+    var p = CFG.CAM_D / (CFG.CAM_D + (relZ < -40 ? -40 : relZ));
+    PJ.p = p;
+    PJ.y = horizonY + (baseY - horizonY) * p;
+    PJ.x = cx + lane * roadHalf * p;
+    return PJ;
+  }
+  function persp(relZ) {
+    return CFG.CAM_D / (CFG.CAM_D + (relZ < -40 ? -40 : relZ));
+  }
+
+  /* ======================================================================
+     RNG
+     ====================================================================== */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ======================================================================
+     LEVEL GENERATION
+     A gate pair is generated against the count the *optimal* player would
+     have. Guard hordes are evaluated per-side, so "best choice" accounts
+     for the horde sitting behind the juicier gate.
+     ====================================================================== */
+  function applyGate(c, g, cap) {
+    var r;
+    if (g.t === 'add') r = c + g.v;
+    else if (g.t === 'sub') r = c - g.v;
+    else if (g.t === 'mul') r = c * g.v;
+    else r = Math.round(c / g.v);
+    if (r < 1) r = 1;
+    if (r > cap) r = cap;
+    return Math.round(r);
+  }
+
+  function gateLabel(g) {
+    if (g.t === 'add') return '+' + g.v;
+    if (g.t === 'sub') return '−' + g.v;
+    if (g.t === 'mul') return '×' + g.v;
+    return '÷' + g.v;
+  }
+  function gateIsBuff(g) { return g.t === 'add' || g.t === 'mul'; }
+
+  function makePair(rng, c, L) {
+    var a, b, forced = -1, k = rng();
+    if (k < 0.20) {                       // clear good vs clear bad
+      a = { t: 'mul', v: 2 };
+      b = { t: 'sub', v: Math.max(2, Math.round(c * (0.25 + rng() * 0.3))) };
+    } else if (k < 0.44) {                // good vs better (depends on count)
+      var hi = rng() < 0.5;
+      var A = Math.max(2, Math.round(c * (hi ? (1.25 + rng() * 0.7) : (0.40 + rng() * 0.35))));
+      a = { t: 'add', v: A };
+      b = { t: 'mul', v: 2 };
+    } else if (k < 0.58) {                // add vs add, clearly different
+      var A2 = Math.max(2, Math.round(c * (0.22 + rng() * 0.35)));
+      var B2 = Math.max(A2 + 3, Math.round(A2 * (1.7 + rng() * 1.2)));
+      a = { t: 'add', v: A2 };
+      b = { t: 'add', v: B2 };
+    } else if (k < 0.72) {                // bad vs worse
+      a = { t: 'sub', v: Math.max(2, Math.round(c * (0.16 + rng() * 0.30))) };
+      b = { t: 'div', v: 2 };
+    } else if (k < 0.86) {                // big prize behind a big guard
+      a = { t: 'mul', v: 3 };
+      b = { t: 'add', v: Math.max(3, Math.round(c * (0.35 + rng() * 0.35))) };
+      forced = 0;
+    } else {                              // safe-ish vs halving, guarded
+      a = { t: 'add', v: Math.max(3, Math.round(c * (0.30 + rng() * 0.45))) };
+      b = { t: 'div', v: 2 };
+      forced = 0;
+    }
+    if (rng() < 0.5) { var t = a; a = b; b = t; if (forced >= 0) forced = 1 - forced; }
+    return { a: a, b: b, forced: forced };
+  }
+
+  function buildLevel(L, seed) {
+    var rng = mulberry32(seed);
+    var cap = capForLevel(L);
+    var speed = speedForLevel(L);
+    var engage = CFG.ENGAGE_Z * CFG.MODEL_EFF / speed;   // seconds of fire per horde
+    function kills(c) { return CFG.FIRE_K * Math.sqrt(c) * engage; }
+    // A guard horde is already in range before its gate, so part of the
+    // firefight happens at the pre-gate count and part at the post-gate count.
+    var preF = (CFG.ENGAGE_Z - CFG.GUARD_OFFSET_Z) / CFG.ENGAGE_Z;
+    function killsGuard(c0, c1) {
+      return CFG.FIRE_K * (preF * Math.sqrt(c0) + (1 - preF) * Math.sqrt(c1)) * engage;
+    }
+
+    var nSeg = Math.min(CFG.SEG_MAX, CFG.SEG_MIN + (L - 1));
+    var start = Math.max(12, Math.round(bossBaseHP(L) / CFG.START_DIV));
+    var c = start;
+    var gates = [], hordes = [];
+    var guardFrac = CFG.GUARD_BASE + CFG.GUARD_PER_LEVEL * L;
+    var midFrac = CFG.MID_BASE + CFG.MID_PER_LEVEL * L;
+
+    for (var i = 0; i < nSeg; i++) {
+      var z = CFG.FIRST_GATE_Z + i * CFG.SEG_Z;
+      var pr = makePair(rng, c, L);
+      var cL = applyGate(c, pr.a, cap);
+      var cR = applyGate(c, pr.b, cap);
+
+      // decide guard hordes
+      var gL = 0, gR = 0;
+      var roll = rng();
+      if (pr.forced >= 0) {
+        if (pr.forced === 0) gL = Math.max(4, Math.round(cL * guardFrac * (0.9 + rng() * 0.6)));
+        else gR = Math.max(4, Math.round(cR * guardFrac * (0.9 + rng() * 0.6)));
+      } else if (roll < CFG.BOTH_GUARD_CHANCE) {
+        gL = Math.max(3, Math.round(cL * guardFrac * (0.6 + rng() * 0.5)));
+        gR = Math.max(3, Math.round(cR * guardFrac * (0.6 + rng() * 0.5)));
+      } else if (roll < CFG.BOTH_GUARD_CHANCE + CFG.GUARD_CHANCE) {
+        var better = cL >= cR ? 0 : 1;
+        var side = (rng() < 0.55) ? better : (1 - better);
+        var base = side === 0 ? cL : cR;
+        var n = Math.max(4, Math.round(base * guardFrac * (0.8 + rng() * 0.5)));
+        if (side === 0) gL = n; else gR = n;
+      }
+
+      var outL = cL - Math.max(0, gL - killsGuard(c, cL));
+      var outR = cR - Math.max(0, gR - killsGuard(c, cR));
+      if (outL < 1) outL = 1;
+      if (outR < 1) outR = 1;
+
+      gates.push({ z: z, left: pr.a, right: pr.b, passed: false, flash: 0 });
+      if (gL > 0) hordes.push({ z: z + CFG.GUARD_OFFSET_Z, x: -0.5, r: CFG.GUARD_R, n: gL, n0: gL, dead: false, hit: 0, g: i, side: -1, locked: false });
+      if (gR > 0) hordes.push({ z: z + CFG.GUARD_OFFSET_Z, x: 0.5, r: CFG.GUARD_R, n: gR, n0: gR, dead: false, hit: 0, g: i, side: 1, locked: false });
+
+      c = Math.round(Math.max(outL, outR));
+      if (c > cap) c = cap;
+
+      // mid-lane blocker that cannot be dodged
+      if (i < nSeg - 1 && rng() < CFG.MID_CHANCE) {
+        var mn = Math.max(3, Math.round(c * midFrac * (0.8 + rng() * 0.4)));
+        var mz = z + CFG.MID_OFFSET_Z;
+        hordes.push({ z: mz, x: 0, r: CFG.MID_R, n: mn, n0: mn, dead: false, hit: 0, g: -1, side: 0, locked: false });
+        c = Math.round(Math.max(1, c - Math.max(0, mn - kills(c))));
+      }
+    }
+
+    var bossZ = CFG.FIRST_GATE_Z + (nSeg - 1) * CFG.SEG_Z + CFG.BOSS_GAP_Z;
+    hordes.sort(function (p, q) { return p.z - q.z; });
+    return {
+      level: L, seed: seed, speed: speed, cap: cap, start: start,
+      gates: gates, hordes: hordes, bossZ: bossZ, optimal: c, endZ: bossZ + 40
+    };
+  }
+
+  function makeLevel(L) {
+    var base = bossBaseHP(L);
+    var ideal = base * CFG.TARGET_RATIO;
+    var best = null, bestScore = Infinity;
+    for (var s = 0; s < CFG.SEED_TRIES; s++) {
+      var lv = buildLevel(L, (L * 7919 + s * 104729) | 0);
+      var score = Math.abs(Math.log(lv.optimal / ideal));
+      if (score < bestScore) { bestScore = score; best = lv; }
+      if (score < 0.02) break;
+    }
+    var hp = Math.round(best.optimal / CFG.TARGET_RATIO);
+    var lo = Math.round(base * (1 - CFG.HP_TOLERANCE));
+    var hiHP = Math.round(base * (1 + CFG.HP_TOLERANCE));
+    if (hp < lo) hp = lo;
+    if (hp > hiHP) hp = hiHP;
+    if (hp < 5) hp = 5;
+    best.bossHP = hp;
+    return best;
+  }
+
+  /* ======================================================================
+     STATE
+     ====================================================================== */
+  var STATE_MENU = 'menu', STATE_PLAY = 'play', STATE_CLEAR = 'clear', STATE_OVER = 'over';
+
+  var G = {
+    state: STATE_MENU,
+    level: 1,
+    best: 1,
+    lv: null,
+    count: 12,
+    trackZ: 0,
+    x: 0,
+    targetX: 0,
+    fireAcc: 0,
+    shake: 0,
+    flashCol: 0,      // 0 none, 1 buff, 2 debuff
+    flash: 0,
+    phase: 'run',     // 'run' | 'clash'
+    clashT: 0,
+    boss: null,
+    overNote: '',
+    time: 0
+  };
+
+  var bullets = new Array(CFG.BULLET_POOL);
+  for (var bi = 0; bi < CFG.BULLET_POOL; bi++) bullets[bi] = { a: false, x: 0, z: 0, vx: 0, life: 0, tz: 0 };
+  var bulletHead = 0;
+
+  var parts = new Array(CFG.PARTICLE_POOL);
+  for (var pi = 0; pi < CFG.PARTICLE_POOL; pi++) parts[pi] = { a: false, x: 0, z: 0, y: 0, vx: 0, vy: 0, vz: 0, t: 0, t0: 1, c: C.bullet, s: 4 };
+  var partHead = 0;
+
+  function spawnBullet(x, z, vx, tz) {
+    var b = bullets[bulletHead];
+    bulletHead = (bulletHead + 1) % CFG.BULLET_POOL;
+    b.a = true; b.x = x; b.z = z; b.vx = vx; b.life = 1.2; b.tz = tz;
+  }
+  function spawnPart(x, z, col, spread, n) {
+    if (reduceMotion) n = Math.min(n, 2);
+    for (var i = 0; i < n; i++) {
+      var p = parts[partHead];
+      partHead = (partHead + 1) % CFG.PARTICLE_POOL;
+      p.a = true; p.x = x; p.z = z; p.y = 4 + Math.random() * 6;
+      p.vx = (Math.random() - 0.5) * spread;
+      p.vz = (Math.random() - 0.5) * spread * 26;
+      p.vy = 12 + Math.random() * 22;
+      p.t = 0.45 + Math.random() * 0.3; p.t0 = p.t;
+      p.c = col; p.s = 3 + Math.random() * 4;
+    }
+  }
+
+  /* ======================================================================
+     SQUAD FORMATION (static offsets, sorted back-to-front once)
+     ====================================================================== */
+  var FORM = new Array(CFG.MAX_SPRITES);
+  (function () {
+    var golden = 2.399963229728653;
+    for (var i = 0; i < CFG.MAX_SPRITES; i++) {
+      var r = Math.sqrt((i + 0.5) / CFG.MAX_SPRITES);
+      var a = i * golden;
+      FORM[i] = { ox: Math.cos(a) * r, oy: Math.sin(a) * r, i: i };
+    }
+    FORM.sort(function (p, q) { return q.oy - p.oy; }); // far (+oy) first
+  })();
+
+  var EFORM = new Array(CFG.MAX_ENEMY_SPRITES);
+  (function () {
+    var golden = 2.399963229728653;
+    for (var i = 0; i < CFG.MAX_ENEMY_SPRITES; i++) {
+      var r = Math.sqrt((i + 0.5) / CFG.MAX_ENEMY_SPRITES);
+      var a = i * golden + 1.1;
+      EFORM[i] = { ox: Math.cos(a) * r, oy: Math.sin(a) * r, i: i };
+    }
+    EFORM.sort(function (p, q) { return q.oy - p.oy; });
+  })();
+
+  function squadRadius(n) {
+    var r = 0.085 + 0.30 * Math.sqrt(n / 240);
+    return r > 0.40 ? 0.40 : r;
+  }
+
+  /* ======================================================================
+     PERSISTENCE
+     ====================================================================== */
+  var LS_KEY = 'gatecrashers.best.v1';
+  function loadBest() {
+    try {
+      var v = window.localStorage.getItem(LS_KEY);
+      var n = parseInt(v, 10);
+      if (isFinite(n) && n >= 1) G.best = n;
+    } catch (e) { /* private mode / blocked storage */ }
+  }
+  function saveBest() {
+    try { window.localStorage.setItem(LS_KEY, String(G.best)); } catch (e) { /* ignore */ }
+  }
+
+  /* ======================================================================
+     HUD
+     ====================================================================== */
+  var hudLevel = -1, hudCount = -1, hudBest = -1;
+  function syncHud() {
+    var c = Math.max(0, Math.ceil(G.count));
+    if (G.level !== hudLevel) { hudLevel = G.level; elLevel.textContent = String(G.level); }
+    if (c !== hudCount) {
+      hudCount = c;
+      elCount.textContent = (G.lv && c >= G.lv.cap) ? 'MAX' : String(c);
+    }
+    if (G.best !== hudBest) {
+      hudBest = G.best;
+      elBest.textContent = String(G.best);
+      elMenuBest.textContent = 'Best level: ' + G.best;
+    }
+  }
+  function showScreen(which) {
+    scrMenu.hidden = which !== 'menu';
+    scrClear.hidden = which !== 'clear';
+    scrOver.hidden = which !== 'over';
+  }
+
+  /* ======================================================================
+     FLOW
+     ====================================================================== */
+  function startLevel(L) {
+    G.level = L;
+    G.lv = makeLevel(L);
+    G.count = G.lv.start;
+    G.trackZ = 0;
+    G.x = 0;
+    G.targetX = 0;
+    G.fireAcc = 0;
+    G.shake = 0;
+    G.flash = 0;
+    G.phase = 'run';
+    G.clashT = 0;
+    G.time = 0;
+    G.boss = { z: G.lv.bossZ, hp: G.lv.bossHP, hp0: G.lv.bossHP, x: 0, r: 0.55, hit: 0 };
+    for (var i = 0; i < bullets.length; i++) bullets[i].a = false;
+    for (var j = 0; j < parts.length; j++) parts[j].a = false;
+    G.state = STATE_PLAY;
+    showScreen(null);
+    syncHud();
+  }
+  function gameOver(note) {
+    G.state = STATE_OVER;
+    G.overNote = note;
+    elOverNote.textContent = note;
+    showScreen('over');
+  }
+  function levelClear() {
+    G.state = STATE_CLEAR;
+    if (G.level + 1 > G.best) { G.best = G.level + 1; saveBest(); }
+    elClearCount.textContent = String(Math.max(0, Math.ceil(G.count)));
+    elClearNote.textContent = 'soldiers standing · boss ' + G.lv.bossHP + ' HP down';
+    showScreen('clear');
+    syncHud();
+  }
+
+  /* ======================================================================
+     SIMULATION
+     ====================================================================== */
+  function findTarget() {
+    // Squad auto-aims at whatever it is about to run into: nearest horde
+    // ahead, nudged toward the lane the player is steering into.
+    var lv = G.lv, best = null, bestScore = Infinity;
+    var hs = lv.hordes;
+    for (var i = 0; i < hs.length; i++) {
+      var h = hs[i];
+      if (h.dead || h.n <= 0) continue;
+      var rel = h.z - G.trackZ;
+      if (rel <= 0.5 || rel > CFG.ENGAGE_Z) continue;
+      var dx = h.x - G.targetX;
+      if (dx < 0) dx = -dx;
+      var score = rel + dx * CFG.AIM_BIAS;
+      if (score < bestScore) { bestScore = score; best = h; }
+    }
+    if (best) return best;
+    var b = G.boss;
+    if (b && b.hp > 0) {
+      var brel = b.z - G.trackZ;
+      if (brel > 0.5 && brel <= CFG.ENGAGE_Z) return b;
+    }
+    return null;
+  }
+
+  function step(dt) {
+    if (G.state !== STATE_PLAY) {
+      G.flash *= Math.max(0, 1 - dt * 4);
+      G.shake *= Math.max(0, 1 - dt * CFG.SHAKE_DECAY);
+      stepParticles(dt);
+      return;
+    }
+    G.time += dt;
+    var lv = G.lv;
+
+    // ---- steering ----
+    if (keyLeft) G.targetX -= CFG.KEY_RATE * dt;
+    if (keyRight) G.targetX += CFG.KEY_RATE * dt;
+    if (G.targetX < -0.92) G.targetX = -0.92;
+    if (G.targetX > 0.92) G.targetX = 0.92;
+    var k = dt * CFG.STEER_RATE;
+    if (k > 1) k = 1;
+    G.x += (G.targetX - G.x) * k;
+
+    // ---- forward ----
+    if (G.phase === 'run') {
+      G.trackZ += lv.speed * dt;
+    }
+
+    // ---- gates ----
+    var gs = lv.gates;
+    for (var gi = 0; gi < gs.length; gi++) {
+      var g = gs[gi];
+      if (g.flash > 0) g.flash -= dt;
+      if (g.passed) continue;
+      if (g.z - G.trackZ <= 0) {
+        var spec = G.x < 0 ? g.left : g.right;
+        var before = G.count;
+        G.count = applyGate(G.count, spec, lv.cap);
+        g.passed = true;
+        g.flash = 0.35;
+        var buff = G.count >= before;
+        G.flash = 0.55;
+        G.flashCol = buff ? 1 : 2;
+        if (!reduceMotion) G.shake = buff ? 3 : 6;
+        spawnPart(G.x, G.trackZ + 6, buff ? C.good : C.bad, 0.5, buff ? 10 : 7);
+        // The guard behind the gate you chose charges you; the other one
+        // stands down. Running a gate always means fighting its guard.
+        var side = G.x < 0 ? -1 : 1;
+        var hl = lv.hordes;
+        for (var hk = 0; hk < hl.length; hk++) {
+          var hg = hl[hk];
+          if (hg.g !== gi) continue;
+          if (hg.side === side) hg.locked = true;
+          else { hg.dead = true; hg.n = 0; }
+        }
+        if (G.count <= 0) { gameOver('A debuff gate emptied the squad.'); return; }
+      }
+    }
+
+    // ---- shooting ----
+    // Damage resolves at the moment of fire (so DPS is exactly
+    // FIRE_K * sqrt(count) and the generator's model matches the sim);
+    // the tracer that flies out is purely cosmetic.
+    var target = findTarget();
+    if (target && G.count > 0) {
+      var rate = CFG.FIRE_K * Math.sqrt(G.count);
+      if (rate > CFG.FIRE_MAX) rate = CFG.FIRE_MAX;
+      G.fireAcc += rate * dt;
+      var shots = 0;
+      var trel = target.z - G.trackZ;
+      var tof = trel / CFG.BULLET_SPEED;
+      var isBoss = (target === G.boss);
+      while (G.fireAcc >= 1 && shots < 24) {
+        G.fireAcc -= 1;
+        shots++;
+        var sr = squadRadius(G.count);
+        var sx = G.x + (Math.random() - 0.5) * sr * 1.4;
+        var vx = tof > 0.001 ? (target.x - sx) / tof : 0;
+        spawnBullet(sx, G.trackZ + 8, vx, target.z);
+        if (isBoss) {
+          target.hp -= CFG.BOSS_ARMOR;
+          if (target.hp < 0) target.hp = 0;
+          target.hit = 0.1;
+        } else {
+          target.n -= 1;
+          target.hit = 0.12;
+          if (target.n <= 0) {
+            target.n = 0;
+            target.dead = true;
+            spawnPart(target.x, target.z, C.foe, 0.6, 8);
+            break;
+          }
+        }
+      }
+    } else {
+      G.fireAcc = 0;
+    }
+
+    // ---- tracers (cosmetic) ----
+    for (var bi2 = 0; bi2 < bullets.length; bi2++) {
+      var b = bullets[bi2];
+      if (!b.a) continue;
+      b.z += CFG.BULLET_SPEED * dt;
+      b.x += b.vx * dt;
+      b.life -= dt;
+      if (b.z >= b.tz) {
+        b.a = false;
+        if (Math.random() < 0.35) spawnPart(b.x, b.tz, C.bulletHot, 0.18, 1);
+        continue;
+      }
+      if (b.life <= 0 || b.z - G.trackZ > CFG.ENGAGE_Z + 30) b.a = false;
+    }
+    var hs = lv.hordes;
+
+    // ---- horde melee ----
+    for (var hj = 0; hj < hs.length; hj++) {
+      var hh = hs[hj];
+      if (hh.hit > 0) hh.hit -= dt;
+      if (hh.dead || hh.n <= 0) continue;
+      var hrel = hh.z - G.trackZ;
+      if (hrel <= 1.5) {
+        var dd = hh.x - G.x;
+        if (dd < 0) dd = -dd;
+        if (hh.locked || dd <= hh.r + CFG.CONTACT_PAD) {
+          G.count -= hh.n;
+          spawnPart(G.x, G.trackZ + 4, C.foe, 0.8, 14);
+          if (!reduceMotion) G.shake = 9;
+          G.flash = 0.5; G.flashCol = 2;
+        }
+        hh.dead = true;
+        hh.n = 0;
+        if (G.count <= 0) { G.count = 0; syncHud(); gameOver('Overrun by the horde.'); return; }
+      }
+    }
+
+    // ---- boss ----
+    var boss = G.boss;
+    if (boss) {
+      if (boss.hit > 0) boss.hit -= dt;
+      var brel2 = boss.z - G.trackZ;
+      if (G.phase === 'run' && brel2 <= 3) {
+        G.phase = 'clash';
+        G.clashT = 0;
+        G.trackZ = boss.z - 3;
+      }
+      if (G.phase === 'clash') {
+        G.clashT += dt;
+        var rate2 = Math.max(G.count, boss.hp) / CFG.CLASH_TIME;
+        var d = rate2 * dt;
+        var nc = G.count - d, nh = boss.hp - d;
+        if (!reduceMotion && Math.random() < 0.5) {
+          spawnPart(boss.x + (Math.random() - 0.5) * 0.5, boss.z - 4, Math.random() < 0.5 ? C.foe : C.ally, 0.7, 2);
+        }
+        if (!reduceMotion) G.shake = 4;
+        if (nh <= 0 || nc <= 0) {
+          if (nh <= 0 && nc > 0) {
+            G.count = Math.max(1, Math.round(nc));
+            boss.hp = 0;
+            spawnPart(boss.x, boss.z, C.bossHi, 1.0, 18);
+            syncHud();
+            levelClear();
+            return;
+          }
+          G.count = 0;
+          boss.hp = Math.max(1, Math.round(nh));
+          syncHud();
+          gameOver('The boss out-numbered you. Bring ' + Math.ceil(boss.hp0 * CFG.TARGET_RATIO) + '+.');
+          return;
+        }
+        G.count = nc;
+        boss.hp = nh;
+      }
+    }
+
+    G.flash *= Math.max(0, 1 - dt * 3.2);
+    G.shake *= Math.max(0, 1 - dt * CFG.SHAKE_DECAY);
+    stepParticles(dt);
+    syncHud();
+  }
+
+  function stepParticles(dt) {
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (!p.a) continue;
+      p.t -= dt;
+      if (p.t <= 0) { p.a = false; continue; }
+      p.x += p.vx * dt;
+      p.z += p.vz * dt;
+      p.y += p.vy * dt;
+      p.vy -= 70 * dt;
+      if (p.y < 0) { p.y = 0; p.vy = 0; }
+    }
+  }
+
+  /* ======================================================================
+     RENDER
+     ====================================================================== */
+  var skyGrad = null, skyGradH = -1;
+
+  function drawSky() {
+    if (!skyGrad || skyGradH !== H) {
+      skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+      skyGrad.addColorStop(0, C.skyTop);
+      skyGrad.addColorStop(0.62, C.skyMid);
+      skyGrad.addColorStop(1, C.skyLow);
+      skyGradH = H;
+    }
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, horizonY + 2);
+
+    // sun
+    var sr = W * 0.20;
+    var sy = horizonY - sr * 0.35;
+    ctx.fillStyle = C.sun;
+    ctx.beginPath();
+    ctx.arc(cx, sy, sr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = C.sunCore;
+    ctx.beginPath();
+    ctx.arc(cx, sy, sr * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    // scanlines over the sun
+    ctx.fillStyle = C.skyMid;
+    for (var i = 0; i < 6; i++) {
+      var yy = sy - sr * 0.1 + i * (sr * 0.19);
+      ctx.fillRect(cx - sr - 2, yy, sr * 2 + 4, sr * 0.075);
+    }
+
+    // ground
+    ctx.fillStyle = C.ground;
+    ctx.fillRect(0, horizonY, W, H - horizonY);
+    ctx.fillStyle = C.ground2;
+    ctx.fillRect(0, horizonY, W, Math.max(2, (H - horizonY) * 0.06));
+  }
+
+  function drawRoad() {
+    var NB = 46;
+    var pFar = persp(CFG.FAR_Z);
+    // base slab all the way to the horizon, so the banded section does not
+    // end in a visible seam at the draw distance
+    ctx.fillStyle = C.roadA;
+    ctx.beginPath();
+    ctx.moveTo(cx - roadHalf * 1.075, baseY);
+    ctx.lineTo(cx + roadHalf * 1.075, baseY);
+    ctx.lineTo(cx + 1, horizonY);
+    ctx.lineTo(cx - 1, horizonY);
+    ctx.closePath();
+    ctx.fill();
+    var prevP = 1.0;
+    var prevZ = 0;
+    for (var i = 1; i <= NB; i++) {
+      var p = 1 - (i / NB) * (1 - pFar);
+      var z = CFG.CAM_D / p - CFG.CAM_D;
+      var y0 = horizonY + (baseY - horizonY) * prevP;
+      var y1 = horizonY + (baseY - horizonY) * p;
+      var hw0 = roadHalf * prevP, hw1 = roadHalf * p;
+      var band = Math.floor((G.trackZ + z) / 16) & 1;
+
+      ctx.fillStyle = band ? C.roadA : C.roadB;
+      ctx.beginPath();
+      ctx.moveTo(cx - hw0, y0);
+      ctx.lineTo(cx + hw0, y0);
+      ctx.lineTo(cx + hw1, y1);
+      ctx.lineTo(cx - hw1, y1);
+      ctx.closePath();
+      ctx.fill();
+
+      // rails
+      ctx.fillStyle = band ? C.railA : C.railB;
+      var e0 = hw0 * 1.075, e1 = hw1 * 1.075;
+      ctx.beginPath();
+      ctx.moveTo(cx - e0, y0); ctx.lineTo(cx - hw0, y0);
+      ctx.lineTo(cx - hw1, y1); ctx.lineTo(cx - e1, y1);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + hw0, y0); ctx.lineTo(cx + e0, y0);
+      ctx.lineTo(cx + e1, y1); ctx.lineTo(cx + hw1, y1);
+      ctx.closePath(); ctx.fill();
+
+      // centre dashes
+      if (band) {
+        ctx.fillStyle = C.divider;
+        var dw0 = Math.max(0.6, roadHalf * prevP * 0.016);
+        var dw1 = Math.max(0.4, roadHalf * p * 0.016);
+        ctx.beginPath();
+        ctx.moveTo(cx - dw0, y0); ctx.lineTo(cx + dw0, y0);
+        ctx.lineTo(cx + dw1, y1); ctx.lineTo(cx - dw1, y1);
+        ctx.closePath(); ctx.fill();
+      }
+      prevP = p; prevZ = z;
+    }
+    // glowing edge lines
+    ctx.strokeStyle = C.roadEdge;
+    ctx.lineWidth = 2;
+    var yb = baseY, yh = horizonY;
+    ctx.beginPath();
+    ctx.moveTo(cx - roadHalf * 1.075, yb); ctx.lineTo(cx - roadHalf * pFar * 1.075, horizonY + (baseY - horizonY) * pFar);
+    ctx.moveTo(cx + roadHalf * 1.075, yb); ctx.lineTo(cx + roadHalf * pFar * 1.075, horizonY + (baseY - horizonY) * pFar);
+    ctx.stroke();
+  }
+
+  function drawGate(g) {
+    var rel = g.z - G.trackZ;
+    if (rel < -10 || rel > CFG.FAR_Z) return;
+    drawGatePanel(g, rel, -1, g.left, g.passed);
+    drawGatePanel(g, rel, 1, g.right, g.passed);
+    // centre post
+    var p = persp(rel);
+    var yb = horizonY + (baseY - horizonY) * p;
+    var h = CFG.GATE_H_PX * p;
+    var pw = Math.max(1.5, roadHalf * p * 0.035);
+    ctx.fillStyle = '#f2f4ff';
+    ctx.fillRect(cx - pw, yb - h, pw * 2, h);
+  }
+
+  function drawGatePanel(g, rel, side, spec, passed) {
+    var p = persp(rel);
+    var yb = horizonY + (baseY - horizonY) * p;
+    var h = CFG.GATE_H_PX * p;
+    var x0 = side < 0 ? -1.04 : 0.0;
+    var x1 = side < 0 ? 0.0 : 1.04;
+    var xa = cx + x0 * roadHalf * p;
+    var xb = cx + x1 * roadHalf * p;
+    var buff = gateIsBuff(spec);
+    var yt = yb - h;
+    var wpx = xb - xa;
+    if (wpx < 2) return;
+
+    var a = passed ? 0.12 : (CFG.GATE_ALPHA + (g.flash > 0 ? 0.25 : 0));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = buff ? C.good : C.bad;
+    ctx.fillRect(xa, yt, wpx, h);
+    ctx.globalAlpha = 1;
+
+    // frame
+    ctx.strokeStyle = buff ? C.good : C.bad;
+    ctx.lineWidth = Math.max(1.5, 5 * p);
+    ctx.strokeRect(xa, yt, wpx, h);
+    // top bar
+    ctx.fillStyle = buff ? C.good : C.bad;
+    ctx.fillRect(xa, yt, wpx, Math.max(2, 14 * p));
+
+    if (passed) return;
+
+    // label
+    var fs = h * 0.44;
+    if (fs < 9) return;
+    if (fs > H * 0.085) fs = H * 0.085;
+    var lx = (xa + xb) * 0.5;
+    var ly = yb - h * 0.52;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = font(fs);
+    ctx.lineWidth = Math.max(2, fs * 0.16);
+    ctx.strokeStyle = buff ? C.goodDim : C.badDim;
+    ctx.strokeText(gateLabel(spec), lx, ly);
+    ctx.fillStyle = C.white;
+    ctx.fillText(gateLabel(spec), lx, ly);
+  }
+
+  function drawCluster(lane, relZ, n, radius, colBody, colHead, colDark, maxSprites, form, pxSize) {
+    var p0 = persp(relZ);
+    if (p0 <= 0.02) return;
+    var shown = n < maxSprites ? n : maxSprites;
+    if (shown < 1) return;
+    // the drawn subset is the inner part of the phyllotaxis disc, so
+    // re-expand it to fill the whole formation radius
+    radius *= Math.sqrt(maxSprites / shown);
+    var zk = radius * 30;
+    for (var i = 0; i < form.length; i++) {
+      var f = form[i];
+      if (f.i !== undefined && f.i >= shown) continue;
+      if (f.i === undefined && i >= shown) continue;
+      var sx = lane + f.ox * radius;
+      var sz = relZ + f.oy * zk;
+      var p = persp(sz);
+      if (p <= 0.02) continue;
+      var y = horizonY + (baseY - horizonY) * p;
+      var x = cx + sx * roadHalf * p;
+      var s = pxSize * p;
+      if (s < 1.2) s = 1.2;
+      var bw = s * 0.52, bh = s * 0.82;
+      ctx.fillStyle = colDark;
+      ctx.fillRect(x - bw * 0.5 - s * 0.06, y - bh + s * 0.06, bw, bh);
+      ctx.fillStyle = colBody;
+      ctx.fillRect(x - bw * 0.5, y - bh, bw, bh);
+      ctx.fillStyle = colHead;
+      var hr = s * 0.20;
+      ctx.beginPath();
+      ctx.arc(x, y - bh - hr * 0.7, hr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawNumber(lane, relZ, text, size, fill, stroke, lift) {
+    var p = persp(relZ);
+    if (p <= 0.03) return;
+    var y = horizonY + (baseY - horizonY) * p - lift * p;
+    var x = cx + lane * roadHalf * p;
+    var fs = size * p;
+    if (fs < 10) fs = 10;
+    if (fs > H * 0.075) fs = H * 0.075;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = font(fs);
+    ctx.lineWidth = Math.max(2, fs * 0.2);
+    ctx.strokeStyle = stroke;
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = fill;
+    ctx.fillText(text, x, y);
+  }
+
+  function drawHorde(h) {
+    var rel = h.z - G.trackZ;
+    if (h.dead || h.n <= 0 || rel < -8 || rel > CFG.FAR_Z) return;
+    var rad = h.r * (0.45 + 0.4 * Math.min(1, h.n / 120));
+    drawCluster(h.x, rel, h.n, rad, h.hit > 0 ? C.foeHi : C.foe, C.foeHi, C.foeDark, CFG.MAX_ENEMY_SPRITES, EFORM, 22);
+    drawNumber(h.x, rel, String(h.n), 58, C.white, C.foeDark, 96);
+  }
+
+  function drawBoss() {
+    var b = G.boss;
+    if (!b || b.hp <= 0) return;
+    var rel = b.z - G.trackZ;
+    if (rel < -12 || rel > CFG.FAR_Z) return;
+    var p = persp(rel);
+    if (p <= 0.02) return;
+    var y = horizonY + (baseY - horizonY) * p;
+    var x = cx + b.x * roadHalf * p;
+    var s = 240 * p;
+    var bw = s * 0.62, bh = s * 0.95;
+    ctx.fillStyle = C.bossDark;
+    ctx.fillRect(x - bw * 0.5 - s * 0.05, y - bh + s * 0.05, bw, bh);
+    ctx.fillStyle = b.hit > 0 ? C.bossHi : C.boss;
+    ctx.fillRect(x - bw * 0.5, y - bh, bw, bh);
+    // shoulders
+    ctx.fillStyle = C.bossDark;
+    ctx.fillRect(x - bw * 0.72, y - bh * 0.98, bw * 0.24, bh * 0.45);
+    ctx.fillRect(x + bw * 0.48, y - bh * 0.98, bw * 0.24, bh * 0.45);
+    // head
+    ctx.fillStyle = C.bossHi;
+    ctx.beginPath();
+    ctx.arc(x, y - bh - s * 0.17, s * 0.20, 0, Math.PI * 2);
+    ctx.fill();
+    // eyes
+    ctx.fillStyle = C.bossDark;
+    ctx.fillRect(x - s * 0.13, y - bh - s * 0.21, s * 0.09, s * 0.05);
+    ctx.fillRect(x + s * 0.04, y - bh - s * 0.21, s * 0.09, s * 0.05);
+
+    // HP bar + number
+    var barW = bw * 1.6, barH = Math.max(4, s * 0.07);
+    var bx = x - barW * 0.5, by = y - bh - s * 0.52;
+    ctx.fillStyle = C.bossDark;
+    ctx.fillRect(bx - 2, by - 2, barW + 4, barH + 4);
+    ctx.fillStyle = '#2a0a18';
+    ctx.fillRect(bx, by, barW, barH);
+    ctx.fillStyle = C.boss;
+    ctx.fillRect(bx, by, barW * Math.max(0, b.hp / b.hp0), barH);
+    drawNumber(b.x, rel, String(Math.ceil(b.hp)), 96, C.white, C.bossDark, 330);
+  }
+
+  function drawSquad() {
+    var n = Math.max(0, Math.ceil(G.count));
+    if (n <= 0) return;
+    var rad = squadRadius(n);
+    drawCluster(G.x, 8, n, rad, C.ally, C.allyHi, C.allyDark, CFG.MAX_SPRITES, FORM, 24);
+    var label = (G.lv && n >= G.lv.cap) ? (n + ' MAX') : String(n);
+    drawNumber(G.x, 8, label, 52, C.white, C.allyDark, 168);
+  }
+
+  function drawBullets() {
+    ctx.strokeStyle = C.bullet;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (var i = 0; i < bullets.length; i++) {
+      var b = bullets[i];
+      if (!b.a) continue;
+      var rel = b.z - G.trackZ;
+      if (rel < -4 || rel > CFG.FAR_Z) continue;
+      var p1 = persp(rel);
+      var p2 = persp(rel - 10);
+      var y1 = horizonY + (baseY - horizonY) * p1 - 26 * p1;
+      var y2 = horizonY + (baseY - horizonY) * p2 - 26 * p2;
+      var x1 = cx + b.x * roadHalf * p1;
+      var x2 = cx + (b.x - b.vx * 0.033) * roadHalf * p2;
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x1, y1);
+    }
+    ctx.stroke();
+  }
+
+  function drawParticles() {
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (!p.a) continue;
+      var rel = p.z - G.trackZ;
+      if (rel < -10 || rel > CFG.FAR_Z) continue;
+      var pp = persp(rel);
+      if (pp <= 0.02) continue;
+      var y = horizonY + (baseY - horizonY) * pp - p.y * pp * 1.6;
+      var x = cx + p.x * roadHalf * pp;
+      var s = p.s * pp;
+      if (s < 1) s = 1;
+      ctx.globalAlpha = Math.max(0, p.t / p.t0);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(x - s * 0.5, y - s * 0.5, s, s);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFinishLine() {
+    var lv = G.lv;
+    if (!lv) return;
+    var rel = lv.bossZ + 26 - G.trackZ;
+    if (rel < -20 || rel > CFG.FAR_Z) return;
+    var p = persp(rel);
+    var y = horizonY + (baseY - horizonY) * p;
+    var hw = roadHalf * p * 1.07;
+    var cells = 10;
+    var cw = (hw * 2) / cells;
+    var ch = Math.max(2, 14 * p);
+    for (var i = 0; i < cells; i++) {
+      ctx.fillStyle = (i & 1) ? '#f4f4f8' : '#1a1030';
+      ctx.fillRect(cx - hw + i * cw, y - ch, cw, ch * 2);
+    }
+  }
+
+  function render() {
+    var sx = 0, sy = 0;
+    if (G.shake > 0.15) {
+      sx = (Math.random() - 0.5) * G.shake;
+      sy = (Math.random() - 0.5) * G.shake;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, sx * dpr, sy * dpr);
+
+    drawSky();
+    drawRoad();
+    drawFinishLine();
+    drawBoss();
+
+    if (G.lv) {
+      // hordes sit just past their gate, so they are drawn first and the
+      // (translucent) nearer gate panel reads in front of them
+      var hs = G.lv.hordes;
+      for (var j = hs.length - 1; j >= 0; j--) drawHorde(hs[j]);
+      var gs = G.lv.gates;
+      for (var i = gs.length - 1; i >= 0; i--) drawGate(gs[i]);
+    }
+
+    drawBullets();
+    drawSquad();
+    drawParticles();
+
+    if (G.flash > 0.01) {
+      ctx.globalAlpha = Math.min(0.45, G.flash * 0.5);
+      ctx.fillStyle = G.flashCol === 1 ? C.good : C.bad;
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+      ctx.globalAlpha = 1;
+    }
+
+    // vignette-ish bottom fade so the HUD reads
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  /* ======================================================================
+     INPUT
+     ====================================================================== */
+  var keyLeft = false, keyRight = false;
+  var dragId = -1, dragX = 0;
+
+  canvas.addEventListener('pointerdown', function (e) {
+    if (G.state !== STATE_PLAY) return;
+    dragId = e.pointerId;
+    dragX = e.clientX;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    e.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener('pointermove', function (e) {
+    if (dragId !== e.pointerId || G.state !== STATE_PLAY) return;
+    var dx = e.clientX - dragX;
+    dragX = e.clientX;
+    G.targetX += (dx / Math.max(40, roadHalf)) * CFG.DRAG_GAIN;
+    if (G.targetX < -0.92) G.targetX = -0.92;
+    if (G.targetX > 0.92) G.targetX = 0.92;
+    e.preventDefault();
+  }, { passive: false });
+
+  function endDrag(e) {
+    if (dragId === e.pointerId) dragId = -1;
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  window.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') { keyLeft = true; e.preventDefault(); }
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') { keyRight = true; e.preventDefault(); }
+    else if (k === ' ' || k === 'Enter') {
+      if (G.state === STATE_MENU) startLevel(1);
+      else if (G.state === STATE_CLEAR) startLevel(G.level + 1);
+      else if (G.state === STATE_OVER) startLevel(G.level);
+    }
+  });
+  window.addEventListener('keyup', function (e) {
+    var k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') keyLeft = false;
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') keyRight = false;
+  });
+
+  document.getElementById('gc-btn-start').addEventListener('click', function () { startLevel(1); });
+  document.getElementById('gc-btn-next').addEventListener('click', function () { startLevel(G.level + 1); });
+  document.getElementById('gc-btn-retry').addEventListener('click', function () { startLevel(G.level); });
+  document.getElementById('gc-btn-menu').addEventListener('click', function () {
+    G.state = STATE_MENU;
+    showScreen('menu');
+  });
+
+  window.addEventListener('resize', resize);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+
+  /* ======================================================================
+     LOOP
+     ====================================================================== */
+  var last = 0, rafId = 0;
+  function frame(ts) {
+    rafId = requestAnimationFrame(frame);
+    var dt = last ? (ts - last) / 1000 : 0.016;
+    last = ts;
+    if (API.headless) return;
+    if (dt > 0.05) dt = 0.05;
+    if (dt < 0) dt = 0;
+    step(dt);
+    render();
+  }
+
+  /* ======================================================================
+     BOOT + DEBUG SURFACE
+     ====================================================================== */
+  var API = {
+    headless: false,
+    get state() { return G.state; },
+    get level() { return G.level; },
+    get count() { return Math.max(0, Math.ceil(G.count)); },
+    get laneX() { return G.x; },
+    get boss() { return G.boss ? Math.ceil(G.boss.hp) : 0; },
+    get optimal() { return G.lv ? G.lv.optimal : 0; },
+    get progress() { return G.lv ? G.trackZ / G.lv.endZ : 0; },
+    get trackZ() { return G.trackZ; },
+    // Read-only plan of the current level, for automated playtesting.
+    get track() {
+      if (!G.lv) return null;
+      var lv = G.lv, i;
+      var gs = new Array(lv.gates.length);
+      for (i = 0; i < lv.gates.length; i++) {
+        gs[i] = { z: lv.gates[i].z, passed: lv.gates[i].passed,
+                  left: gateLabel(lv.gates[i].left), right: gateLabel(lv.gates[i].right) };
+      }
+      var hs = new Array(lv.hordes.length);
+      for (i = 0; i < lv.hordes.length; i++) {
+        hs[i] = { z: lv.hordes[i].z, x: lv.hordes[i].x, r: lv.hordes[i].r, n: lv.hordes[i].n, dead: lv.hordes[i].dead };
+      }
+      return { level: lv.level, speed: lv.speed, cap: lv.cap, start: lv.start,
+               gates: gs, hordes: hs, bossZ: lv.bossZ, bossHP: lv.bossHP, optimal: lv.optimal };
+    },
+    setInputX: function (x) {
+      var v = +x;
+      if (!isFinite(v)) return;
+      if (v < -0.92) v = -0.92;
+      if (v > 0.92) v = 0.92;
+      G.targetX = v;
+    },
+    // tick(dt) advances the sim deterministically and redraws.
+    // Pass draw === false to skip the redraw when batch-simulating.
+    tick: function (dt, draw) {
+      var d = +dt;
+      if (!isFinite(d) || d <= 0) d = 0.016;
+      if (d > 0.05) d = 0.05;
+      step(d);
+      if (draw !== false) render();
+    },
+    render: function () { render(); },
+    start: function () { startLevel(1); },
+    startLevel: function (L) { startLevel(Math.max(1, L | 0)); },
+    restart: function () { startLevel(G.level); },
+    menu: function () { G.state = STATE_MENU; showScreen('menu'); },
+    snapshot: function () { return { level: G.level, best: G.best, state: G.state }; }
+  };
+  window.__game = API;
+
+  loadBest();
+  resize();
+  showScreen('menu');
+  G.lv = makeLevel(1);
+  G.count = G.lv.start;
+  G.boss = { z: G.lv.bossZ, hp: G.lv.bossHP, hp0: G.lv.bossHP, x: 0, r: 0.55, hit: 0 };
+  syncHud();
+  render();
+  rafId = requestAnimationFrame(frame);
+
+  // Artifact hot-reload boot pattern (no-op when the host is absent).
+  try {
+    if (window.claude && window.claude.hot) {
+      if (typeof window.claude.hot.snapshot === 'function') {
+        window.claude.hot.snapshot(function () { return { level: G.level, best: G.best }; });
+      }
+      if (typeof window.claude.hot.ready === 'function') {
+        window.claude.hot.ready(function (prev) {
+          if (prev && prev.best) { G.best = prev.best; syncHud(); }
+        });
+      }
+    }
+  } catch (e) { /* host not present */ }
+})();
+</script>
