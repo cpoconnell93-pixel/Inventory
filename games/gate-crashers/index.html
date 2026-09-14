@@ -131,22 +131,22 @@
 
     // --- horde sizing (relative to the squad size the player should have) ---
     GUARD_BASE:       0.30,  // guard horde = count * (GUARD_BASE + GUARD_PER_LEVEL*L)
-    GUARD_PER_LEVEL:  0.05,
-    MID_CHANCE:       0.32,
+    GUARD_PER_LEVEL:  0.012,
+    MID_CHANCE:       0.24,
     MID_OFFSET_Z:     75,    // keeps mid hordes ENGAGE_Z clear of both neighbours
-    MID_BASE:         0.18,
-    MID_PER_LEVEL:    0.03,
+    MID_BASE:         0.13,
+    MID_PER_LEVEL:    0.008,
     GUARD_CHANCE:     0.50,
     BOTH_GUARD_CHANCE:0.18,
 
     // --- balance ---
-    TARGET_RATIO:     1.22,  // optimal squad at the boss = bossHP * this
+    TARGET_RATIO:     1.30,  // optimal squad at the boss = bossHP * this
     HP_TOLERANCE:     0.22,  // boss HP may drift this far from the spec table
     SEED_TRIES:       90,
     SEG_MIN:          6,
     SEG_MAX:          10,
-    SQUAD_CAP_MIN:    400,
-    CAP_OVER_BOSS:    1.6,
+    SQUAD_CAP_MIN:    40,
+    CAP_OVER_BOSS:    1.85,
     START_DIV:        12,    // level start count = max(12, bossHP / START_DIV)
     CLASH_TIME:       1.1,   // seconds of boss melee resolution
 
@@ -309,35 +309,47 @@
   }
   function gateIsBuff(g) { return g.t === 'add' || g.t === 'mul'; }
 
-  function makePair(rng, c, L) {
-    var a, b, forced = -1, k = rng();
-    if (k < 0.20) {                       // clear good vs clear bad
+  function kindOf(k) {
+    if (k < 0.20) return 0;         // clear good vs clear bad
+    if (k < 0.44) return 1;         // good vs better (depends on count)
+    if (k < 0.58) return 2;         // add vs add, clearly different
+    if (k < 0.72) return 3;         // bad vs worse
+    if (k < 0.86) return 4;         // big prize behind a big guard
+    return 5;                       // safe-ish vs halving, guarded
+  }
+
+  function makePair(rng, c, L, prevKind) {
+    var a, b, forced = -1, k = rng(), kind = kindOf(k);
+    // Avoid drawing the same pair template two segments in a row so runs
+    // don't feel repetitive; one reroll is enough (never blocks forever).
+    if (kind === prevKind) { k = rng(); kind = kindOf(k); }
+    if (kind === 0) {
       a = { t: 'mul', v: 2 };
-      b = { t: 'sub', v: Math.max(2, Math.round(c * (0.25 + rng() * 0.3))) };
-    } else if (k < 0.44) {                // good vs better (depends on count)
+      b = { t: 'sub', v: Math.max(2, Math.round(c * (0.38 + rng() * 0.35))) };
+    } else if (kind === 1) {
       var hi = rng() < 0.5;
       var A = Math.max(2, Math.round(c * (hi ? (1.25 + rng() * 0.7) : (0.40 + rng() * 0.35))));
       a = { t: 'add', v: A };
       b = { t: 'mul', v: 2 };
-    } else if (k < 0.58) {                // add vs add, clearly different
+    } else if (kind === 2) {
       var A2 = Math.max(2, Math.round(c * (0.22 + rng() * 0.35)));
       var B2 = Math.max(A2 + 3, Math.round(A2 * (1.7 + rng() * 1.2)));
       a = { t: 'add', v: A2 };
       b = { t: 'add', v: B2 };
-    } else if (k < 0.72) {                // bad vs worse
-      a = { t: 'sub', v: Math.max(2, Math.round(c * (0.16 + rng() * 0.30))) };
+    } else if (kind === 3) {
+      a = { t: 'sub', v: Math.max(2, Math.round(c * (0.28 + rng() * 0.35))) };
       b = { t: 'div', v: 2 };
-    } else if (k < 0.86) {                // big prize behind a big guard
+    } else if (kind === 4) {
       a = { t: 'mul', v: 3 };
       b = { t: 'add', v: Math.max(3, Math.round(c * (0.35 + rng() * 0.35))) };
       forced = 0;
-    } else {                              // safe-ish vs halving, guarded
+    } else {
       a = { t: 'add', v: Math.max(3, Math.round(c * (0.30 + rng() * 0.45))) };
       b = { t: 'div', v: 2 };
       forced = 0;
     }
     if (rng() < 0.5) { var t = a; a = b; b = t; if (forced >= 0) forced = 1 - forced; }
-    return { a: a, b: b, forced: forced };
+    return { a: a, b: b, forced: forced, kind: kind };
   }
 
   function buildLevel(L, seed) {
@@ -359,10 +371,12 @@
     var gates = [], hordes = [];
     var guardFrac = CFG.GUARD_BASE + CFG.GUARD_PER_LEVEL * L;
     var midFrac = CFG.MID_BASE + CFG.MID_PER_LEVEL * L;
+    var prevKind = -1;
 
     for (var i = 0; i < nSeg; i++) {
       var z = CFG.FIRST_GATE_Z + i * CFG.SEG_Z;
-      var pr = makePair(rng, c, L);
+      var pr = makePair(rng, c, L, prevKind);
+      prevKind = pr.kind;
       var cL = applyGate(c, pr.a, cap);
       var cR = applyGate(c, pr.b, cap);
 
@@ -957,7 +971,10 @@
 
     if (passed) return;
 
-    // label
+    // label — fades out as the gate closes in, so it never overlaps the
+    // squad's own floating count label near the bottom of the screen.
+    var labelA = rel < 10 ? 0 : Math.min(1, (rel - 10) / 26);
+    if (labelA <= 0.02) return;
     var fs = h * 0.44;
     if (fs < 9) return;
     if (fs > H * 0.085) fs = H * 0.085;
@@ -967,10 +984,12 @@
     ctx.textBaseline = 'middle';
     ctx.font = font(fs);
     ctx.lineWidth = Math.max(2, fs * 0.16);
+    ctx.globalAlpha = labelA;
     ctx.strokeStyle = buff ? C.goodDim : C.badDim;
     ctx.strokeText(gateLabel(spec), lx, ly);
     ctx.fillStyle = C.white;
     ctx.fillText(gateLabel(spec), lx, ly);
+    ctx.globalAlpha = 1;
   }
 
   function drawCluster(lane, relZ, n, radius, colBody, colHead, colDark, maxSprites, form, pxSize) {
